@@ -17,7 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.walkingtours.app.ui.nav.WalkingToursNavHost
-import com.walkingtours.app.ui.theme.WalkingToursTheme
+import com.walkingtours.app.ui.theme.FootnotesTheme
 
 class MainActivity : ComponentActivity() {
 
@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity() {
                     controller.isAppearanceLightNavigationBars = !darkBars
                 }
             }
-            WalkingToursTheme(themeMode = aiState.themeMode) {
+            FootnotesTheme(themeMode = aiState.themeMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,

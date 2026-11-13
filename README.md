@@ -1,8 +1,12 @@
 <p align="center"><img src="app/src/main/res/drawable-nodpi/ic_launcher_foreground.jpg" width="200" alt="Two grinning travellers take a selfie on a forest path under a Turkish flag"></p>
 
-# Walking Tours
+# Footnotes
 
-**An audio guide for Istanbul that lives on your phone and refuses to be boring.**
+**Audio walks with opinions.** An audio guide that lives on your phone and refuses to be boring.
+
+The interface is a risograph travel zine: cream paper, ink outlines, hard printed shadows, Fraunces at
+full volume, and a different spot colour for every city. The typefaces and their licences are listed
+in [docs/FONTS.md](docs/FONTS.md).
 
 Put your earphones in, pick a walk, and go. The app watches where you are. When you reach a stop it just… starts talking. No tapping, no scrolling, no "and on your left." While you walk it's quiet; the moment you arrive, it isn't.
 

@@ -1,5 +1,7 @@
 package com.walkingtours.app.ui.settings
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,31 +11,26 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.walkingtours.app.ServiceLocator
 import com.walkingtours.app.ai.MODEL_PROVIDERS
@@ -52,23 +50,30 @@ import com.walkingtours.app.ai.MODEL_PROVIDER_OPENCODE
 import com.walkingtours.app.ai.THEME_MODES
 import com.walkingtours.app.ai.TTS_ENGINES
 import com.walkingtours.app.ai.TTS_ENGINE_ELEVENLABS
+import com.walkingtours.app.ui.components.BackSticker
+import com.walkingtours.app.ui.components.Kicker
+import com.walkingtours.app.ui.components.NoteCard
+import com.walkingtours.app.ui.components.PaperBackground
+import com.walkingtours.app.ui.components.Sticker
+import com.walkingtours.app.ui.theme.FootnotesMonoFont
+import com.walkingtours.app.ui.theme.FootnotesTitleFont
+import com.walkingtours.app.ui.theme.LocalFootnotesPalette
 import kotlinx.coroutines.launch
 
 /**
- * Settings for the optional Gemini services.
+ * Settings for the optional cloud services, and the few choices that change the walk itself.
  *
  * Nothing here is required: with no key at all the app still runs a complete tour on the phone's own
- * voice. These settings switch the upgraded narration on and report whether the key works.
+ * voice. The page is written like the notes pinned inside a cupboard door, not a corporate admin
+ * panel.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(onBack: () -> Unit) {
     val settings = ServiceLocator.aiSettings
     val state by settings.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    val p = LocalFootnotesPalette.current
 
-    // Live status of the text-model provider: a models call is the cheapest real test that the key
-    // works, and it also proves the pinned model is offered to this account.
     var apiStatus by remember { mutableStateOf<String?>(null) }
     var apiOk by remember { mutableStateOf<Boolean?>(null) }
     val openCode = state.modelProvider == MODEL_PROVIDER_OPENCODE
@@ -85,23 +90,21 @@ fun SettingsScreen(onBack: () -> Unit) {
             return
         }
         apiOk = null
-        apiStatus = "Checking\u2026"
+        apiStatus = "Checking…"
         scope.launch {
             try {
                 val client = ServiceLocator.modelClient
                 val models = client.availableModels()
                 val wanted = client.activeModel
-                // The app calls one pinned model, so a working key that cannot see it is a failure
-                // worth naming here rather than in the middle of a walk.
                 if (models.none { it == wanted }) {
                     apiOk = false
                     apiStatus = "$wanted is not available on this key"
                 } else {
                     apiOk = true
                     apiStatus = if (openCode) {
-                        "OpenCode Go key accepted \u00b7 $wanted"
+                        "OpenCode Go key accepted · $wanted"
                     } else {
-                        "Gemini API working \u00b7 $wanted"
+                        "Gemini API working · $wanted"
                     }
                 }
             } catch (e: Exception) {
@@ -113,32 +116,58 @@ fun SettingsScreen(onBack: () -> Unit) {
 
     LaunchedEffect(state.modelProvider) { checkApi() }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Settings", fontWeight = FontWeight.SemiBold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-            )
-        },
-    ) { innerPadding ->
+    PaperBackground {
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(innerPadding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding(),
+            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            item {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        BackSticker(onBack = onBack)
+                        Spacer(Modifier.width(12.dp))
+                        Kicker("The control room", color = p.cobalt)
+                        Spacer(Modifier.weight(1f))
+                        Sticker("Handle with care", container = p.mustard, rotation = 3f)
+                    }
+                    Spacer(Modifier.height(20.dp))
+                    Text(
+                        text = "Knobs, dials\nand voices.",
+                        style = MaterialTheme.typography.displaySmall.copy(
+                            fontFamily = FootnotesTitleFont,
+                            fontSize = 43.sp,
+                            lineHeight = 41.sp,
+                        ),
+                        color = p.ink,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "Nothing here is required. With no keys at all, the whole walk still runs " +
+                            "on the voice already living in your phone.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = p.inkSoft,
+                    )
+                }
+            }
+
             // ---------------------------------------------------------- models
             item {
-                SettingsCard(title = "AI models") {
+                SettingsCard(title = "The brains", accent = p.cobalt) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(Modifier.weight(1f)) {
-                            Text("Model provider", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                text = "Who writes the words",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = p.ink,
+                            )
                             Text(
                                 text = if (openCode) {
                                     "Guides, rewrites, detours and chat run on your OpenCode Go " +
@@ -147,18 +176,31 @@ fun SettingsScreen(onBack: () -> Unit) {
                                     "Guides, rewrites, detours and chat run on Google Gemini, " +
                                         "billed per token."
                                 },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = p.inkSoft,
                             )
                         }
-                        Spacer(Modifier.width(16.dp))
-                        ModelProviderDropdown(
-                            selected = state.modelProvider,
-                            onSelect = { id -> settings.update { it.copy(modelProvider = id) } },
-                        )
+                        Spacer(Modifier.width(10.dp))
+                        Box {
+                            var expanded by remember { mutableStateOf(false) }
+                            val label = MODEL_PROVIDERS.firstOrNull { it.first == state.modelProvider }?.second
+                                ?: state.modelProvider
+                            PillButton(text = label) { expanded = true }
+                            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                                MODEL_PROVIDERS.forEach { (id, text) ->
+                                    DropdownMenuItem(
+                                        text = { Text(text) },
+                                        onClick = {
+                                            expanded = false
+                                            settings.update { it.copy(modelProvider = id) }
+                                        },
+                                    )
+                                }
+                            }
+                        }
                     }
                     StatusLine(
-                        text = apiStatus ?: "Checking\u2026",
+                        text = apiStatus ?: "Checking…",
                         isError = apiOk == false,
                         isSuccess = apiOk == true,
                     )
@@ -168,7 +210,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                             text = "DeepSeek V4.1 Flash is included in the Go plan, accepts photos, " +
                                 "and its provider keeps no data and does not train on prompts.",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = p.inkSoft,
                         )
                     }
                 }
@@ -176,33 +218,59 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             // ---------------------------------------------------------- appearance
             item {
-                SettingsCard(title = "Appearance") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "Theme",
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.weight(1f),
-                        )
-                        ThemeDropdown(
-                            selected = state.themeMode,
-                            onSelect = { tag -> settings.update { it.copy(themeMode = tag) } },
-                        )
-                    }
-                }
-            }
-
-            // ---------------------------------------------------------- narration voice
-            item {
-                SettingsCard(title = "Narration voice") {
+                SettingsCard(title = "The look", accent = p.plum) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(Modifier.weight(1f)) {
-                            Text("Use a cloud voice", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                text = "Light or dark",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = p.ink,
+                            )
+                            Text(
+                                text = "The paper gets a night mode. The opinions stay.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = p.inkSoft,
+                            )
+                        }
+                        Box {
+                            var expanded by remember { mutableStateOf(false) }
+                            val label = THEME_MODES.firstOrNull { it.first == state.themeMode }?.second
+                                ?: state.themeMode
+                            PillButton(text = label) { expanded = true }
+                            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                                THEME_MODES.forEach { (tag, text) ->
+                                    DropdownMenuItem(
+                                        text = { Text(text) },
+                                        onClick = {
+                                            expanded = false
+                                            settings.update { it.copy(themeMode = tag) }
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ---------------------------------------------------------- voice
+            item {
+                SettingsCard(title = "The voice", accent = p.teal) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                text = "Use a cloud voice",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = p.ink,
+                            )
                             Text(
                                 text = when {
                                     state.ttsEngine == TTS_ENGINE_ELEVENLABS && !state.hasElevenLabsKey ->
@@ -215,41 +283,65 @@ fun SettingsScreen(onBack: () -> Unit) {
                                     else ->
                                         "Gemini reads the guide. Billed per request after a free allowance."
                                 },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = p.inkSoft,
                             )
                         }
-                        Spacer(Modifier.width(16.dp))
+                        Spacer(Modifier.width(10.dp))
                         Switch(
                             checked = state.useCloudVoice,
                             enabled = state.cloudEngineReady,
                             onCheckedChange = { on -> settings.update { it.copy(useCloudVoice = on) } },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = p.paperRaised,
+                                checkedTrackColor = p.teal,
+                                uncheckedThumbColor = p.paperRaised,
+                                uncheckedTrackColor = p.ink.copy(alpha = 0.35f),
+                                uncheckedBorderColor = p.ink,
+                            ),
                         )
                     }
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(12.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = "Voice engine",
-                            style = MaterialTheme.typography.bodyLarge,
+                            text = "Which engine",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = p.ink,
                             modifier = Modifier.weight(1f),
                         )
-                        VoiceEngineDropdown(
-                            selected = state.ttsEngine,
-                            onSelect = { id ->
-                                val ready = if (id == TTS_ENGINE_ELEVENLABS) {
-                                    state.hasElevenLabsKey
-                                } else {
-                                    state.hasGeminiKey
+                        Box {
+                            var expanded by remember { mutableStateOf(false) }
+                            val label = TTS_ENGINES.firstOrNull { it.first == state.ttsEngine }?.second
+                                ?: state.ttsEngine
+                            PillButton(text = label) { expanded = true }
+                            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                                TTS_ENGINES.forEach { (id, text) ->
+                                    DropdownMenuItem(
+                                        text = { Text(text) },
+                                        onClick = {
+                                            expanded = false
+                                            val ready = if (id == TTS_ENGINE_ELEVENLABS) {
+                                                state.hasElevenLabsKey
+                                            } else {
+                                                state.hasGeminiKey
+                                            }
+                                            settings.update {
+                                                it.copy(
+                                                    ttsEngine = id,
+                                                    useCloudVoice = it.useCloudVoice && ready,
+                                                )
+                                            }
+                                        },
+                                    )
                                 }
-                                settings.update {
-                                    it.copy(ttsEngine = id, useCloudVoice = it.useCloudVoice && ready)
-                                }
-                            },
-                        )
+                            }
+                        }
                     }
+                    Spacer(Modifier.height(8.dp))
                     if (state.ttsEngine == TTS_ENGINE_ELEVENLABS) {
                         StatusLine(
                             text = if (state.hasElevenLabsKey) {
@@ -277,13 +369,18 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             // ---------------------------------------------------------- playback
             item {
-                SettingsCard(title = "Chapter playback") {
+                SettingsCard(title = "The walk", accent = p.mustard) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(Modifier.weight(1f)) {
-                            Text("Play chapters automatically", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                text = "Play chapters by themselves",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = p.ink,
+                            )
                             Text(
                                 text = if (state.autoPlayChapters) {
                                     "The introduction plays when the tour starts, and each stop's " +
@@ -292,134 +389,92 @@ fun SettingsScreen(onBack: () -> Unit) {
                                     "Nothing plays by itself. The introduction and each stop wait for " +
                                         "you to press play."
                                 },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = p.inkSoft,
                             )
                         }
-                        Spacer(Modifier.width(16.dp))
+                        Spacer(Modifier.width(10.dp))
                         Switch(
                             checked = state.autoPlayChapters,
                             onCheckedChange = { on -> settings.update { it.copy(autoPlayChapters = on) } },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = p.paperRaised,
+                                checkedTrackColor = p.tomato,
+                                uncheckedThumbColor = p.paperRaised,
+                                uncheckedTrackColor = p.ink.copy(alpha = 0.35f),
+                                uncheckedBorderColor = p.ink,
+                            ),
                         )
                     }
+                }
+            }
+
+            item {
+                Column(Modifier.padding(top = 8.dp)) {
+                    Text(
+                        text = "That's the whole control room. Mind the dust.",
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontFamily = FootnotesTitleFont,
+                            fontSize = 22.sp,
+                        ),
+                        color = p.ink,
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = "KEYS LIVE IN local.properties · NEVER IN A SCREENSHOT",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = p.inkSoft,
+                    )
                 }
             }
         }
     }
 }
 
-/** A compact theme picker: the current mode on a button, the rest in a menu. */
+/** The little capsule button every dropdown uses. */
 @Composable
-private fun ThemeDropdown(selected: String, onSelect: (String) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    val label = THEME_MODES.firstOrNull { it.first == selected }?.second ?: selected
-    Box {
-        OutlinedButton(
-            onClick = { expanded = true },
-            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-        ) {
-            Text(label, style = MaterialTheme.typography.labelLarge)
-            Spacer(Modifier.width(4.dp))
-            Icon(
-                Icons.Filled.ArrowDropDown,
-                contentDescription = "Appearance",
-                modifier = Modifier.size(18.dp),
-            )
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            THEME_MODES.forEach { (tag, text) ->
-                DropdownMenuItem(
-                    text = { Text(text) },
-                    onClick = {
-                        expanded = false
-                        onSelect(tag)
-                    },
-                )
-            }
-        }
-    }
-}
-
-/** A compact text-model provider picker. */
-@Composable
-private fun ModelProviderDropdown(selected: String, onSelect: (String) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    val label = MODEL_PROVIDERS.firstOrNull { it.first == selected }?.second ?: selected
-    Box {
-        OutlinedButton(
-            onClick = { expanded = true },
-            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-        ) {
-            Text(label, style = MaterialTheme.typography.labelLarge)
-            Spacer(Modifier.width(4.dp))
-            Icon(
-                Icons.Filled.ArrowDropDown,
-                contentDescription = "Model provider",
-                modifier = Modifier.size(18.dp),
-            )
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            MODEL_PROVIDERS.forEach { (id, text) ->
-                DropdownMenuItem(
-                    text = { Text(text) },
-                    onClick = {
-                        expanded = false
-                        onSelect(id)
-                    },
-                )
-            }
-        }
-    }
-}
-
-/** A compact cloud-voice picker: the current engine on a button, the rest in a menu. */
-@Composable
-private fun VoiceEngineDropdown(selected: String, onSelect: (String) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    val label = TTS_ENGINES.firstOrNull { it.first == selected }?.second ?: selected
-    Box {
-        OutlinedButton(
-            onClick = { expanded = true },
-            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-        ) {
-            Text(label, style = MaterialTheme.typography.labelLarge)
-            Spacer(Modifier.width(4.dp))
-            Icon(
-                Icons.Filled.ArrowDropDown,
-                contentDescription = "Voice engine",
-                modifier = Modifier.size(18.dp),
-            )
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            TTS_ENGINES.forEach { (id, text) ->
-                DropdownMenuItem(
-                    text = { Text(text) },
-                    onClick = {
-                        expanded = false
-                        onSelect(id)
-                    },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SettingsCard(title: String, content: @Composable () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+private fun PillButton(
+    text: String,
+    onClick: () -> Unit,
+) {
+    val p = LocalFootnotesPalette.current
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(50),
+        color = p.paperRaised,
+        contentColor = p.ink,
+        border = BorderStroke(1.2.dp, p.ink),
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Row(
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+                text = text.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
             )
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                Icons.Filled.ArrowDropDown,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsCard(
+    title: String,
+    accent: androidx.compose.ui.graphics.Color,
+    content: @Composable () -> Unit,
+) {
+    val p = LocalFootnotesPalette.current
+    NoteCard(accent = accent) {
+        Column {
+            Kicker(title, color = accent)
             Spacer(Modifier.height(10.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(12.dp))
             content()
         }
     }
@@ -427,6 +482,7 @@ private fun SettingsCard(title: String, content: @Composable () -> Unit) {
 
 @Composable
 private fun StatusLine(text: String, isError: Boolean = false, isSuccess: Boolean = false) {
+    val p = LocalFootnotesPalette.current
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         verticalAlignment = Alignment.Top,
@@ -439,9 +495,9 @@ private fun StatusLine(text: String, isError: Boolean = false, isSuccess: Boolea
             },
             contentDescription = null,
             tint = when {
-                isSuccess -> MaterialTheme.colorScheme.primary
-                isError -> MaterialTheme.colorScheme.error
-                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                isSuccess -> p.teal
+                isError -> p.tomato
+                else -> p.inkSoft
             },
             modifier = Modifier.size(14.dp),
         )
@@ -450,9 +506,9 @@ private fun StatusLine(text: String, isError: Boolean = false, isSuccess: Boolea
             text = text,
             style = MaterialTheme.typography.labelSmall,
             color = when {
-                isSuccess -> MaterialTheme.colorScheme.primary
-                isError -> MaterialTheme.colorScheme.error
-                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                isSuccess -> p.teal
+                isError -> p.tomato
+                else -> p.inkSoft
             },
         )
     }

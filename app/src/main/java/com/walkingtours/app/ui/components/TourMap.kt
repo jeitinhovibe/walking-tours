@@ -270,13 +270,13 @@ private const val ACCURACY_STROKE = 0x331A73E8
  *
  * Shared by both map engines so the line does not change colour with the engine.
  */
-private val ROUTE_COLOR = Color(0xFF2E8B7D)
+private val ROUTE_COLOR = Color(0xFF1F8A7A)
 
 /**
  * Drawn under the route, wider, so the line has a light edge wherever it crosses dark tiles — the
  * usual casing trick, and the reason routes stay legible over busy map detail.
  */
-private val ROUTE_CASING_COLOR = Color(0xFFFFFFFF)
+private val ROUTE_CASING_COLOR = Color(0xFFFFF8EB)
 
 private const val ROUTE_WIDTH = 10f
 
@@ -302,8 +302,8 @@ private const val ENDPOINT_DOT_SIZE_PX = 44
  * and the alpha keeps it from competing with the route or the blue position dot. Shared by both
  * engines so the fence looks the same whichever one draws it.
  */
-private const val GEOFENCE_FILL = 0x142E8B7D
-private const val GEOFENCE_STROKE = 0x4D2E8B7D
+private const val GEOFENCE_FILL = 0x141F8A7A
+private const val GEOFENCE_STROKE = 0x4D1F8A7A
 private const val GEOFENCE_STROKE_WIDTH = 3f
 
 
@@ -701,9 +701,9 @@ fun TourMap(
                 val visited = stop.id in visitedIds
                 val selected = stop.id == selectedStopId
                 val fill = when {
-                    selected -> AndroidColor.parseColor("#FFC8892F")
-                    visited -> AndroidColor.parseColor("#FF0F6E6E")
-                    else -> AndroidColor.parseColor("#FF1B5E8C")
+                    selected -> AndroidColor.parseColor("#FFE4572E")
+                    visited -> AndroidColor.parseColor("#FF1F8A7A")
+                    else -> AndroidColor.parseColor("#FF17130F")
                 }
                 val marker = Marker(mapView).apply {
                     position = GeoPoint(stop.lat, stop.lng)
@@ -1296,9 +1296,9 @@ private fun GoogleTourMap(
             val visited = stop.id in visitedIds
             val selected = stop.id == selectedStopId
             val fill = when {
-                selected -> AndroidColor.parseColor("#FFC8892F")
-                visited -> AndroidColor.parseColor("#FF0F6E6E")
-                else -> AndroidColor.parseColor("#FF1B5E8C")
+                selected -> AndroidColor.parseColor("#FFE4572E")
+                visited -> AndroidColor.parseColor("#FF1F8A7A")
+                else -> AndroidColor.parseColor("#FF17130F")
             }
             GoogleMarker(
                 // The icon helper is a pure function of (order, visited, selected), so each marker
@@ -1696,7 +1696,7 @@ private fun drawUserLocationDot(withCone: Boolean): android.graphics.Bitmap {
 
     paint.color = android.graphics.Color.WHITE
     canvas.drawCircle(centre, centre, ringRadius, paint)
-    paint.color = android.graphics.Color.parseColor("#FF1A73E8")
+    paint.color = android.graphics.Color.parseColor("#FFE4572E")
     canvas.drawCircle(centre, centre, dotRadius, paint)
 
     return bitmap
