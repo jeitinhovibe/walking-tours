@@ -61,8 +61,8 @@ class MainActivity : ComponentActivity() {
                 @Suppress("DEPRECATION")
                 SideEffect {
                     window.statusBarColor = background.toArgb()
-                    // The bottom bar carries a little transparency; the top one does not.
-                    window.navigationBarColor = background.copy(alpha = 0.72f).toArgb()
+                    // The bottom OS bar is genuinely transparent: page content scrolls behind it.
+                    window.navigationBarColor = android.graphics.Color.TRANSPARENT
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         window.isStatusBarContrastEnforced = false
                         window.isNavigationBarContrastEnforced = false

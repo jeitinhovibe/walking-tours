@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -84,6 +86,7 @@ fun PersonaScreen(
     val persona by personaSettings.state.collectAsStateWithLifecycle()
     val currentGuide = persona.guide(tourId)
     val p = LocalFootnotesPalette.current
+    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     var guides by remember { mutableStateOf<List<Guide>?>(null) }
 
@@ -97,9 +100,8 @@ fun PersonaScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 28.dp),
+                .padding(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 28.dp + navBottom),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 BackSticker(onBack = onBack)
