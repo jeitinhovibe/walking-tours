@@ -10,6 +10,8 @@ import com.walkingtours.app.data.db.StopEntity
  */
 data class TourSessionState(
     val tourId: String? = null,
+    /** The current tour's title, carried so the media notification can name it. */
+    val tourTitle: String = "",
     val isRunning: Boolean = false,
     val stops: List<StopEntity> = emptyList(),
     val visitedStopIds: Set<String> = emptySet(),

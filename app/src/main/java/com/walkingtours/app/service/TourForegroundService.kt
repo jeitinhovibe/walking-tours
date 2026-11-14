@@ -229,14 +229,18 @@ class TourForegroundService : Service() {
         val stop = state.stops.firstOrNull { it.id == narration.stopId }
             ?: state.currentStop
         val duration = narration.durationMs
+        val tourName = state.tourTitle.ifBlank { "Walking tour" }
         return MediaMetadata.Builder()
-            .putString(MediaMetadata.METADATA_KEY_TITLE, stop?.name ?: "Walking tour")
+            .putString(MediaMetadata.METADATA_KEY_TITLE, stop?.name ?: tourName)
             .putString(
                 MediaMetadata.METADATA_KEY_ARTIST,
                 when {
-                    stop != null -> "Historic Istanbul \u00b7 stop ${stop.order} of ${state.stops.size}"
-                    state.showingOverview -> "Introduction to the walk"
-                    else -> "Walking tour"
+                    // The artist line is what the lock screen and media control show under the stop
+                    // name. It used to hard-code "Historic Istanbul", so every walk claimed to be
+                    // that one tour.
+                    stop != null -> "$tourName \u00b7 stop ${stop.order} of ${state.stops.size}"
+                    state.showingOverview -> "$tourName \u00b7 introduction"
+                    else -> tourName
                 },
             )
             .putString(MediaMetadata.METADATA_KEY_ALBUM, "Footnotes")
@@ -297,9 +301,15 @@ class TourForegroundService : Service() {
     ): Notification {
         val stop = state.stops.firstOrNull { it.id == narration.stopId } ?: state.currentStop
 
-        val title = stop?.name ?: "Walking tour"
+        val tourName = state.tourTitle.ifBlank { "Walking tour" }
+        val title = stop?.name ?: tourName
+        val progress = when {
+            stop != null -> "stop ${stop.order} of ${state.stops.size}"
+            state.showingOverview -> "introduction"
+            else -> "${state.visitedStopIds.size} of ${state.stops.size} stops reached"
+        }
         val text = when (narration.state) {
-            NarrationState.PLAYING -> "Playing \u00b7 stop ${stop?.order ?: 0} of ${state.stops.size}"
+            NarrationState.PLAYING -> "Playing \u00b7 $progress"
             NarrationState.PREPARING -> "Preparing audio\u2026"
             NarrationState.PAUSED -> "Paused"
             NarrationState.COMPLETED -> "Finished \u00b7 ${state.visitedStopIds.size} of ${state.stops.size} reached"

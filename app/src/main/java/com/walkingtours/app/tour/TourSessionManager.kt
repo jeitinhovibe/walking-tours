@@ -177,6 +177,7 @@ class TourSessionManager(
 
             _state.value = TourSessionState(
                 tourId = tourId,
+                tourTitle = tour?.title.orEmpty(),
                 isRunning = true,
                 stops = stops,
                 visitedStopIds = visited,
