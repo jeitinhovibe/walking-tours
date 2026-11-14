@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -127,6 +128,39 @@ fun TopEdgeFade(
                 ),
             ),
     )
+}
+
+/**
+ * Paints the Android system bar areas in the app's paper colour, so the status bar and the
+ * navigation bar look like part of the page rather than two pieces of the operating system bolted
+ * on top and bottom. On Android 15+ the app draws edge to edge and the platform no longer reliably
+ * honours window colours, so the bars are also filled here, in Compose, above the content.
+ */
+@Composable
+fun SystemBarBackdrop() {
+    val p = LocalFootnotesPalette.current
+    val statusHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val navHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    Box(Modifier.fillMaxSize()) {
+        if (statusHeight > 0.dp) {
+            Box(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .height(statusHeight)
+                    .background(p.paper),
+            )
+        }
+        if (navHeight > 0.dp) {
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(navHeight)
+                    .background(p.paper),
+            )
+        }
+    }
 }
 
 /**
