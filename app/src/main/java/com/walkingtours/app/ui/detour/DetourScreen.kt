@@ -3,6 +3,9 @@ package com.walkingtours.app.ui.detour
 import android.graphics.BitmapFactory
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,30 +19,23 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.foundation.Image
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,6 +44,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -56,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.walkingtours.app.ServiceLocator
 import com.walkingtours.app.ai.DetourPhoto
@@ -65,15 +65,29 @@ import com.walkingtours.app.audio.NarrationState
 import com.walkingtours.app.tour.detourUtteranceId
 import com.walkingtours.app.ui.chat.AskBar
 import com.walkingtours.app.ui.chat.ChatBottomSheet
+import com.walkingtours.app.ui.components.BackSticker
+import com.walkingtours.app.ui.components.InkButton
+import com.walkingtours.app.ui.components.InkCard
+import com.walkingtours.app.ui.components.Kicker
 import com.walkingtours.app.ui.components.NarrationTransport
+import com.walkingtours.app.ui.components.NoteCard
+import com.walkingtours.app.ui.components.PaperBackground
+import com.walkingtours.app.ui.components.Sparkle
+import com.walkingtours.app.ui.components.StatusBarScrim
+import com.walkingtours.app.ui.components.TopEdgeFade
+import com.walkingtours.app.ui.components.Sticker
+import com.walkingtours.app.ui.components.Sunburst
 import com.walkingtours.app.ui.components.Transcript
+import com.walkingtours.app.ui.theme.FootnotesMonoFont
+import com.walkingtours.app.ui.theme.FootnotesTitleFont
+import com.walkingtours.app.ui.theme.LocalFootnotesPalette
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
  * A detour: one generated deep-dive that is not a stop.
  *
- * It borrows the stop page's shape — photograph, transport, collapsible transcript — but there is
+ * It borrows the stop page's shape — photograph, player, collapsible transcript — but there is
  * no map (a detour is about a country, not a coordinate), no visitor information, and no
  * previous/next: a detour is a single chapter with nowhere to step to. The words come from the
  * tour's guide persona, exactly like a stop's; leaving the page stops the audio only if the detour
@@ -92,6 +106,7 @@ fun DetourScreen(
     val narration by session.narration.progress.collectAsStateWithLifecycle()
     val loading by guide.loading.collectAsStateWithLifecycle()
     val detourError by session.detourError.collectAsStateWithLifecycle()
+    val p = LocalFootnotesPalette.current
 
     var topics by remember { mutableStateOf<List<DetourTopic>?>(null) }
     LaunchedEffect(tourId) {
@@ -99,13 +114,8 @@ fun DetourScreen(
     }
     val topic = topics?.find { it.id == topicId }
 
-    // The controller's own signature, so the effect below re-fires exactly when the cached
-    // text would change: guide, angle, tone or language.
     val signature = guide.detourSignature(tourId)
     val detourKey = "detour|$topicId"
-    // Read through the controller helper, not a local signature computation: it covers the
-    // guideless case with the neutral signature, and the audio plays from the same lookup, so the
-    // two can never disagree about what is ready.
     val text = guide.detourText(tourId, topicId)
     val isLoading = detourKey in loading
     val utteranceId = detourUtteranceId(topicId)
@@ -113,8 +123,6 @@ fun DetourScreen(
     val isPlaying = narration.state == NarrationState.PLAYING ||
         narration.state == NarrationState.PREPARING
 
-    // Play once the topic resolves, and again if the guide changes underneath it; the guards make
-    // this a single attempt per state, never a loop.
     LaunchedEffect(topic?.id, signature, text, isLoading, detourError) {
         val resolved = topic ?: return@LaunchedEffect
         if (text == null && !isLoading && detourError == null) {
@@ -143,134 +151,200 @@ fun DetourScreen(
     }
 
     fun leave() {
-        // Stop the detour's audio on the way out, but only the detour's: the walk underneath keeps
-        // whatever it was doing.
         if (session.narration.progress.value.stopId == utteranceId) session.stopNarration()
         onBack()
     }
     BackHandler { leave() }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = topic?.title ?: "Detour",
-                        fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = ::leave) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-            )
-        },
-        bottomBar = {
-            AskBar(
-                placeholder = "Ask about this detour",
-                onClick = { showChat = true },
-            )
-        },
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            DetourImage(photo = photo, contentDescription = topic?.title)
-
-            Column(
-                Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp),
+    PaperBackground {
+        Scaffold(
+            containerColor = Color.Transparent,
+            bottomBar = {
+                AskBar(
+                    placeholder = "Ask about this detour",
+                    onClick = { showChat = true },
+                )
+            },
+        ) { innerPadding ->
+            val scrollState = rememberScrollState()
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(bottom = innerPadding.calculateBottomPadding()),
             ) {
-                Text(
-                    text = "Detour",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    text = topic?.title ?: "Loading detour\u2026",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Spacer(Modifier.height(6.dp))
-                when {
-                    topic == null -> LoadingDetour()
-                    isLoading -> LoadingDetour()
-                    detourError != null -> DetourError(
-                        message = detourError.orEmpty(),
-                        onRetry = { session.playDetour(tourId, topic) },
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState),
+            ) {
+                Box(Modifier.fillMaxWidth().height(260.dp)) {
+                    DetourImage(
+                        photo = photo,
+                        contentDescription = topic?.title,
+                        modifier = Modifier.fillMaxSize(),
                     )
-                    else -> NarrationTransport(
-                        state = if (highlightApplies) narration.state else NarrationState.IDLE,
-                        positionMs = if (highlightApplies) narration.positionMs else 0L,
-                        durationMs = if (highlightApplies) narration.durationMs else 0L,
-                        rate = narration.rate,
-                        onPlayPause = {
-                            if (isPlaying && highlightApplies) {
-                                session.pauseNarration()
-                            } else if (highlightApplies && narration.state == NarrationState.PAUSED) {
-                                session.resumeNarration()
-                            } else {
-                                session.playDetour(tourId, topic)
-                            }
-                        },
-                        onRewind = { session.skipNarrationBy(-15_000) },
-                        onForward = { session.skipNarrationBy(15_000) },
-                        onPrevious = {},
-                        onNext = {},
-                        showPrevNext = false,
-                        onSeekFraction = { fraction ->
-                            session.seekNarrationTo((fraction * narration.durationMs).toLong())
-                        },
-                        onRateChange = { session.setNarrationRate(it) },
-                        message = if (highlightApplies) narration.message else null,
-                    )
-                }
-            }
-
-            if (!isLoading && detourError == null && text != null) {
-                Column(Modifier.padding(16.dp)) {
-                    Row(
+                    TopEdgeFade(height = 130.dp)
+                    BackSticker(
+                        onBack = ::leave,
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { transcriptOpen = !transcriptOpen },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
+                            .statusBarsPadding()
+                            .padding(start = 14.dp, top = 8.dp),
+                    )
+                    Sticker(
+                        text = "Detour",
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .statusBarsPadding()
+                            .padding(end = 14.dp, top = 12.dp),
+                        container = p.mustard,
+                        rotation = 3f,
+                    )
+                    Sticker(
+                        text = "No walking required",
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(14.dp),
+                        container = p.paperRaised,
+                        contentColor = p.ink,
+                        rotation = -1.5f,
+                    )
+                }
+                Box(Modifier.fillMaxWidth().height(2.dp).background(p.ink))
+
+                Column(Modifier.padding(start = 18.dp, end = 18.dp, top = 20.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Kicker("A necessary detour", color = p.tomato)
+                        Spacer(Modifier.weight(1f))
+                        Sparkle(Modifier.size(18.dp), color = p.teal)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = topic?.title ?: "Loading detour…",
+                        style = MaterialTheme.typography.displaySmall.copy(
+                            fontFamily = FootnotesTitleFont,
+                            fontSize = 36.sp,
+                            lineHeight = 37.sp,
+                        ),
+                        color = p.ink,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    topic?.blurb?.takeIf { it.isNotBlank() }?.let { blurb ->
+                        Spacer(Modifier.height(8.dp))
                         Text(
-                            text = "Transcript",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Icon(
-                            imageVector = if (transcriptOpen) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                            contentDescription = if (transcriptOpen) "Hide transcript" else "Show transcript",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            text = blurb,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = p.inkSoft,
                         )
                     }
-                    if (transcriptOpen) {
-                        Spacer(Modifier.height(8.dp))
-                        Transcript(text = text)
+                    Spacer(Modifier.height(16.dp))
+                    when {
+                        topic == null -> LoadingDetour()
+                        isLoading -> LoadingDetour()
+                        detourError != null -> DetourError(
+                            message = detourError.orEmpty(),
+                            onRetry = { session.playDetour(tourId, topic) },
+                        )
+                        else -> NarrationTransport(
+                            state = if (highlightApplies) narration.state else NarrationState.IDLE,
+                            positionMs = if (highlightApplies) narration.positionMs else 0L,
+                            durationMs = if (highlightApplies) narration.durationMs else 0L,
+                            rate = narration.rate,
+                            onPlayPause = {
+                                if (isPlaying && highlightApplies) {
+                                    session.pauseNarration()
+                                } else if (highlightApplies && narration.state == NarrationState.PAUSED) {
+                                    session.resumeNarration()
+                                } else {
+                                    session.playDetour(tourId, topic)
+                                }
+                            },
+                            onRewind = { session.skipNarrationBy(-15_000) },
+                            onForward = { session.skipNarrationBy(15_000) },
+                            onPrevious = {},
+                            onNext = {},
+                            showPrevNext = false,
+                            onSeekFraction = { fraction ->
+                                session.seekNarrationTo((fraction * narration.durationMs).toLong())
+                            },
+                            onRateChange = { session.setNarrationRate(it) },
+                            message = if (highlightApplies) narration.message else null,
+                        )
                     }
                 }
+
+                if (!isLoading && detourError == null && text != null) {
+                    NoteCard(
+                        modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 16.dp),
+                        accent = p.teal,
+                    ) {
+                        Column {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { transcriptOpen = !transcriptOpen },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        text = "THE SCRIPT",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontFamily = FootnotesMonoFont,
+                                            fontWeight = FontWeight.Bold,
+                                        ),
+                                        color = p.inkSoft,
+                                    )
+                                    Text(
+                                        text = if (transcriptOpen) "Read along" else "The full story",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = p.ink,
+                                    )
+                                }
+                                Icon(
+                                    imageVector = if (transcriptOpen) {
+                                        Icons.Filled.ExpandLess
+                                    } else {
+                                        Icons.Filled.ExpandMore
+                                    },
+                                    contentDescription = if (transcriptOpen) {
+                                        "Hide transcript"
+                                    } else {
+                                        "Show transcript"
+                                    },
+                                    tint = p.inkSoft,
+                                )
+                            }
+                            if (transcriptOpen) {
+                                Spacer(Modifier.height(10.dp))
+                                Transcript(
+                                    text = text,
+                                    style = MaterialTheme.typography.bodyLarge.copy(color = p.ink),
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(28.dp))
             }
-            Spacer(Modifier.height(8.dp))
+            StatusBarScrim(
+                visible = scrollState.value > 24,
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
+            }
         }
     }
 }
 
-/** The detour's illustration: the fetched photograph, or an empty panel of the same size. */
+/** The detour's illustration: the fetched photograph, or a printed placeholder of the same size. */
 @Composable
 private fun DetourImage(
     photo: DetourPhoto?,
     contentDescription: String?,
-    height: Dp = 240.dp,
     modifier: Modifier = Modifier,
+    height: Dp = 260.dp,
 ) {
+    val p = LocalFootnotesPalette.current
     var bitmap by remember(photo) { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(photo) {
         val file = photo?.file
@@ -294,15 +368,55 @@ private fun DetourImage(
         }
     }
 
-    Box(modifier) {
-        Box(Modifier.fillMaxWidth().height(height)) {
-            bitmap?.let {
-                Image(
-                    bitmap = it,
-                    contentDescription = contentDescription,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
+    Box(modifier.background(p.paperDeep)) {
+        val current = bitmap
+        if (current != null) {
+            Image(
+                bitmap = current,
+                contentDescription = contentDescription,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            // A designed placeholder rather than an empty panel: the photograph comes from the
+            // network and can take a moment, and a blank rectangle reads as a bug. Stripes, a
+            // star and a little honesty make the wait part of the zine.
+            Box(Modifier.fillMaxSize().background(p.mustard.copy(alpha = 0.5f))) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val step = 22.dp.toPx()
+                    val paint = p.ink.copy(alpha = 0.06f)
+                    var x = -size.height
+                    while (x < size.width) {
+                        drawLine(
+                            color = paint,
+                            start = Offset(x, 0f),
+                            end = Offset(x + size.height, size.height),
+                            strokeWidth = 8.dp.toPx(),
+                        )
+                        x += step
+                    }
+                }
+                Column(
+                    modifier = Modifier.align(Alignment.Center).padding(horizontal = 30.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Sunburst(Modifier.size(54.dp), color = p.ink.copy(alpha = 0.55f), rays = 12)
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = "PICTURE ON ITS WAY",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontFamily = FootnotesMonoFont,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                        color = p.ink.copy(alpha = 0.7f),
+                    )
+                    Text(
+                        text = "Use your imagination. It has better lighting.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = p.ink.copy(alpha = 0.62f),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
+                }
             }
         }
     }
@@ -310,37 +424,53 @@ private fun DetourImage(
 
 @Composable
 private fun LoadingDetour() {
+    val p = LocalFootnotesPalette.current
     Row(verticalAlignment = Alignment.CenterVertically) {
-        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+        CircularProgressIndicator(
+            modifier = Modifier.size(18.dp),
+            strokeWidth = 2.dp,
+            color = p.tomato,
+        )
         Spacer(Modifier.width(12.dp))
         Text(
-            text = "Loading detour\u2026",
+            text = "Digging up the good stuff…",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = p.inkSoft,
         )
     }
 }
 
 @Composable
 private fun DetourError(message: String, onRetry: () -> Unit) {
-    Card(
+    val p = LocalFootnotesPalette.current
+    InkCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer,
-        ),
+        container = p.tomato,
+        contentColor = p.paperRaised,
+        shape = RoundedCornerShape(16.dp),
     ) {
         Column(Modifier.padding(16.dp)) {
             Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer,
+                text = "That detour took a wrong turn.",
+                style = MaterialTheme.typography.titleMedium.copy(fontFamily = FootnotesTitleFont),
+                color = p.paperRaised,
             )
-            Spacer(Modifier.height(8.dp))
-            Button(onClick = onRetry) {
-                Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Try again")
-            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = p.paperRaised.copy(alpha = 0.88f),
+            )
+            Spacer(Modifier.height(10.dp))
+            InkButton(
+                text = "Try again",
+                onClick = onRetry,
+                icon = Icons.Filled.Refresh,
+                container = p.paperRaised,
+                contentColor = p.ink,
+                height = 44.dp,
+                shadow = 3.dp,
+            )
         }
     }
 }
@@ -359,6 +489,7 @@ fun DetourTopicsSheet(
 ) {
     val guide = ServiceLocator.guide
     val aiSettings by ServiceLocator.aiSettings.state.collectAsStateWithLifecycle()
+    val p = LocalFootnotesPalette.current
     var topics by remember { mutableStateOf<List<DetourTopic>?>(null) }
     var attempted by remember { mutableStateOf(false) }
     var retryKey by remember { mutableStateOf(0) }
@@ -372,11 +503,9 @@ fun DetourTopicsSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        containerColor = p.paper,
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
     ) {
-        // Scrollable: with up to five cards the content is taller than the sheet on small
-        // screens, and a clipped card reads as an empty box. The scroll takes over past the
-        // sheet's max height instead.
         Column(
             Modifier
                 .fillMaxWidth()
@@ -384,29 +513,38 @@ fun DetourTopicsSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 8.dp),
         ) {
+            Kicker("Take a detour", color = p.tomato)
             Text(
-                text = "Go on a detour",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
+                text = "Where are\nwe going?",
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontFamily = FootnotesTitleFont,
+                    fontSize = 35.sp,
+                    lineHeight = 34.sp,
+                ),
+                color = p.ink,
             )
             Spacer(Modifier.height(6.dp))
             Text(
                 text = "Country-level context behind this walk — history, politics, culture and more, " +
-                    "told by your guide.",
+                    "told by your guide. Not a single step required.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = p.inkSoft,
             )
             Spacer(Modifier.height(14.dp))
 
             when {
                 topics == null -> {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = p.tomato,
+                        )
                         Spacer(Modifier.width(12.dp))
                         Text(
-                            text = "Dreaming up detours\u2026",
+                            text = "Dreaming up detours…",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = p.inkSoft,
                         )
                     }
                 }
@@ -416,58 +554,83 @@ fun DetourTopicsSheet(
                         text = "Detours need a Gemini API key — they are generated, not written in advance. " +
                             "Add one in Settings.",
                         style = MaterialTheme.typography.bodyMedium,
+                        color = p.inkSoft,
                     )
                     Spacer(Modifier.height(12.dp))
-                    OutlinedButton(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth()) {
-                        Text("Open Settings")
-                    }
+                    InkButton(
+                        text = "Open Settings",
+                        onClick = onOpenSettings,
+                        container = p.ink,
+                        contentColor = p.paperRaised,
+                        height = 48.dp,
+                    )
                 }
 
                 topics!!.isEmpty() -> {
                     Text(
                         text = "Couldn't dream up detours right now. Check your connection and try again.",
                         style = MaterialTheme.typography.bodyMedium,
+                        color = p.inkSoft,
                     )
                     Spacer(Modifier.height(12.dp))
-                    OutlinedButton(
+                    InkButton(
+                        text = "Try again",
                         onClick = { retryKey++ },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("Try again")
-                    }
+                        container = p.ink,
+                        contentColor = p.paperRaised,
+                        height = 48.dp,
+                    )
                 }
 
                 else -> {
-                    topics!!.forEach { topic ->
-                        // The sheet itself is surfaceContainerLow (the ModalBottomSheet default),
-                        // so a card in the same colour is invisible. surfaceContainerHigh plus an
-                        // outlineVariant border keeps every topic reading as a box, light or dark.
-                        Card(
+                    topics!!.forEachIndexed { index, topic ->
+                        InkCard(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             onClick = { onPick(topic) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            ),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            shape = RoundedCornerShape(16.dp),
+                            shadow = 3.dp,
+                            borderWidth = 1.5.dp,
                         ) {
-                            Column(Modifier.padding(16.dp)) {
-                                Text(
-                                    text = topic.title,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                if (topic.blurb.isNotBlank()) {
-                                    Spacer(Modifier.height(4.dp))
+                            Row(
+                                Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(
+                                    Modifier
+                                        .size(34.dp)
+                                        .background(
+                                            if (index % 2 == 0) p.mustard else p.teal,
+                                            RoundedCornerShape(9.dp),
+                                        ),
+                                    contentAlignment = Alignment.Center,
+                                ) {
                                     Text(
-                                        text = topic.blurb,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis,
+                                        text = (index + 1).toString(),
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontFamily = FootnotesMonoFont,
+                                            fontWeight = FontWeight.Bold,
+                                        ),
+                                        color = if (index % 2 == 0) Color(0xFF221A0E) else p.paperRaised,
                                     )
+                                }
+                                Spacer(Modifier.width(11.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        text = topic.title,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = p.ink,
+                                    )
+                                    if (topic.blurb.isNotBlank()) {
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(
+                                            text = topic.blurb,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = p.inkSoft,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
                                 }
                             }
                         }

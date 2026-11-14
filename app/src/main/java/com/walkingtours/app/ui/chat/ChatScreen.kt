@@ -72,6 +72,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
@@ -82,6 +83,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.core.content.FileProvider
 import androidx.compose.ui.window.Popup
@@ -94,6 +96,14 @@ import com.walkingtours.app.ai.Suggestion
 import com.walkingtours.app.ai.TravelChatController
 import com.walkingtours.app.ai.decodePreviewBitmap
 import com.walkingtours.app.ai.loadInlineImage
+import com.walkingtours.app.ui.components.InkCard
+import com.walkingtours.app.ui.components.InkIconTile
+import com.walkingtours.app.ui.components.InkTextLink
+import com.walkingtours.app.ui.components.Kicker
+import com.walkingtours.app.ui.components.NoteCard
+import com.walkingtours.app.ui.theme.FootnotesMonoFont
+import com.walkingtours.app.ui.theme.FootnotesTitleFont
+import com.walkingtours.app.ui.theme.LocalFootnotesPalette
 import java.io.File
 
 /**
@@ -110,43 +120,64 @@ fun AskBar(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val p = LocalFootnotesPalette.current
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(26.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shadowElevation = 4.dp,
+        shape = RoundedCornerShape(16.dp),
+        color = p.paperRaised,
+        contentColor = p.ink,
+        border = BorderStroke(1.5.dp, p.ink),
         modifier = modifier
             .fillMaxWidth()
             // Scaffold does not inset its bottomBar, so without this the bar sits underneath the
             // system navigation bar and cannot be tapped at all on a device using 3-button
             // navigation. The emulator's gesture navigation hid this.
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 14.dp, vertical = 8.dp),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                Icons.Filled.AutoAwesome,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp),
-            )
+            Box(
+                Modifier.size(34.dp).background(p.tomato, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Filled.AutoAwesome,
+                    contentDescription = null,
+                    tint = p.paperRaised,
+                    modifier = Modifier.size(17.dp),
+                )
+            }
             Spacer(Modifier.width(10.dp))
-            Text(
-                text = placeholder,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-            )
-            Icon(
-                Icons.Filled.Mic,
-                contentDescription = "Ask by voice",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp),
-            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = "ASK THE LOCAL",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontFamily = FootnotesMonoFont,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                    color = p.tomato,
+                )
+                Text(
+                    text = placeholder,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = p.inkSoft,
+                    maxLines = 1,
+                )
+            }
+            Box(
+                Modifier.size(34.dp).background(p.paperDeep, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Filled.Mic,
+                    contentDescription = "Ask by voice",
+                    tint = p.ink,
+                    modifier = Modifier.size(17.dp),
+                )
+            }
         }
     }
 }
@@ -165,6 +196,7 @@ fun ChatBottomSheet(
     val controller = ServiceLocator.chat
     val state by controller.state.collectAsStateWithLifecycle()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val p = LocalFootnotesPalette.current
 
     // Without this the controller has no conversation key, so asking a question would silently do
     // nothing and the suggested questions would never load. The full-screen chat always opened a
@@ -179,7 +211,7 @@ fun ChatBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         // Pin the sheet colour so the composer can match it exactly (see InputRow).
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        containerColor = p.paper,
         // Handle the navigation bar inset ourselves: the sheet's default inset handling left the
         // input row underneath the system navigation bar on a 3-button-navigation device.
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
@@ -191,7 +223,7 @@ fun ChatBottomSheet(
                     .padding(vertical = 10.dp)
                     .size(width = 36.dp, height = 4.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)),
+                    .background(p.ink.copy(alpha = 0.4f)),
             )
         },
     ) {
@@ -322,7 +354,13 @@ fun ChatContent(
                 Modifier.weight(1f).fillMaxWidth()
             },
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            // A short conversation sits just above the composer, the way a chat log should, rather
+            // than floating at the top of a mostly empty sheet.
+            verticalArrangement = if (state.messages.isEmpty()) {
+                Arrangement.spacedBy(12.dp)
+            } else {
+                Arrangement.spacedBy(12.dp, Alignment.Bottom)
+            },
         ) {
             if (state.messages.isEmpty() && !state.needsApiKey) {
                 item { IntroHint() }
@@ -394,34 +432,52 @@ fun ChatContent(
 
 @Composable
 private fun IntroHint() {
-    Text(
-        text = "Ask me anything about this walk, the city, its history, food or practicalities. " +
-            "I am only here for travel questions.",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    val p = LocalFootnotesPalette.current
+    Column(Modifier.padding(vertical = 6.dp)) {
+        Kicker("Ask the local", color = p.tomato)
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = "No stupid\nquestions.",
+            style = MaterialTheme.typography.displaySmall.copy(
+                fontFamily = FootnotesTitleFont,
+                fontSize = 34.sp,
+                lineHeight = 33.sp,
+            ),
+            color = p.ink,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "Food, history, which door is the entrance, what the locals actually queue for. " +
+                "It knows this walk and this city. It will not do your taxes.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = p.inkSoft,
+        )
+    }
 }
 
 @Composable
 private fun ApiKeyCard(onOpenSettings: () -> Unit) {
-    com.walkingtours.app.ui.components.InfoCard(
+    val p = LocalFootnotesPalette.current
+    NoteCard(
         modifier = Modifier.fillMaxWidth().padding(16.dp),
+        accent = p.tomato,
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column {
+            Kicker("One small thing", color = p.tomato)
             Text(
-                text = "Add your Gemini API key",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
+                text = "The local needs a key",
+                style = MaterialTheme.typography.titleMedium.copy(fontFamily = FootnotesTitleFont),
+                color = p.ink,
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(4.dp))
             Text(
                 text = "The assistant needs a Google Gemini API key. It is free to create, and the " +
-                    "free tier is generous for personal use. The tour itself keeps working without it.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    "free tier is generous for personal use. The walk itself keeps working without it.",
+                style = MaterialTheme.typography.bodySmall,
+                color = p.inkSoft,
             )
-            Spacer(Modifier.height(10.dp))
-            TextButton(onClick = onOpenSettings) { Text("Open Settings") }
+            Spacer(Modifier.height(6.dp))
+            InkTextLink(text = "OPEN SETTINGS →", onClick = onOpenSettings, color = p.tomato)
         }
     }
 }
@@ -432,35 +488,67 @@ private fun SuggestionRow(
     enabled: Boolean,
     onPick: (Suggestion) -> Unit,
 ) {
+    val p = LocalFootnotesPalette.current
     Column(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             // Clear air between the last suggestion and the input bar below it.
             .padding(bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         Text(
-            text = "Try asking",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            text = "OR TRY ONE OF THESE",
+            style = MaterialTheme.typography.labelSmall,
+            color = p.inkSoft,
         )
         // The three best questions, one per row: a single column reads down like a short list of
         // things to ask, where a wrapping cloud of chips read as decoration.
-        suggestions.take(3).forEach { suggestion ->
+        suggestions.take(3).forEachIndexed { index, suggestion ->
             Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                onClick = { onPick(suggestion) },
+                enabled = enabled,
+                shape = RoundedCornerShape(12.dp),
+                color = p.paperRaised,
+                contentColor = p.ink,
+                border = BorderStroke(1.2.dp, p.ink),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(enabled = enabled) { onPick(suggestion) },
+                    .graphicsLayer { rotationZ = if (index % 2 == 0) -0.5f else 0.5f },
             ) {
-                Text(
-                    text = suggestion.label,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                )
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        Modifier
+                            .size(24.dp)
+                            .background(if (index == 0) p.mustard else p.paperDeep, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "${index + 1}",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontFamily = FootnotesMonoFont,
+                                fontWeight = FontWeight.Bold,
+                            ),
+                            color = p.ink,
+                        )
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = suggestion.label,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = p.ink,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Icon(
+                        Icons.AutoMirrored.Filled.Send,
+                        contentDescription = null,
+                        tint = p.tomato,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
             }
         }
     }
@@ -468,16 +556,17 @@ private fun SuggestionRow(
 
 @Composable
 private fun MessageBubble(message: ChatMessage) {
+    val p = LocalFootnotesPalette.current
     val isUser = message.role == ChatRole.USER
     val container = when {
         message.isError -> MaterialTheme.colorScheme.errorContainer
-        isUser -> MaterialTheme.colorScheme.primaryContainer
-        else -> MaterialTheme.colorScheme.surfaceContainerHigh
+        isUser -> p.tomato
+        else -> p.paperRaised
     }
     val content = when {
         message.isError -> MaterialTheme.colorScheme.onErrorContainer
-        isUser -> MaterialTheme.colorScheme.onPrimaryContainer
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
+        isUser -> p.paperRaised
+        else -> p.ink
     }
 
     Row(
@@ -492,6 +581,7 @@ private fun MessageBubble(message: ChatMessage) {
                 bottomEnd = if (isUser) 4.dp else 16.dp,
             ),
             color = container,
+            border = if (isUser || message.isError) null else BorderStroke(1.2.dp, p.ink),
             // Wraps its text, and only caps for long answers. Forcing a fraction of the width made
             // a two-word reply look like a full-width banner.
             modifier = Modifier.widthIn(max = 320.dp),
@@ -526,20 +616,22 @@ private fun InputRow(
     // the system back button itself. Intercept it here while the menu is open, so back closes the
     // menu rather than the whole chat sheet.
     BackHandler(enabled = showPhotoMenu) { showPhotoMenu = false }
-    // Matches the sheet's own container colour (ModalBottomSheet defaults to surfaceContainerLow),
-    // so the composer reads as part of the sheet rather than a separate panel below it.
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shadowElevation = 6.dp) {
+    val p = LocalFootnotesPalette.current
+    // Matches the sheet's own paper, so the composer reads as part of the sheet rather than a
+    // separate panel below it.
+    Column(Modifier.fillMaxWidth().background(p.paperRaised)) {
+        Box(Modifier.fillMaxWidth().height(1.5.dp).background(p.ink.copy(alpha = 0.55f)))
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // One rounded field holds the text, the attach button and the voice/send button, so the
             // whole input reads as a single object rather than a text box followed by loose icons.
             Surface(
-                shape = RoundedCornerShape(26.dp),
-                // Same background as the sheet; the outline alone marks the field as the input.
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                shape = RoundedCornerShape(16.dp),
+                // Same paper as the sheet; the ink outline marks the field as the input.
+                color = p.paper,
+                border = BorderStroke(1.2.dp, p.ink),
                 modifier = Modifier.weight(1f),
             ) {
                 Row(
@@ -630,6 +722,7 @@ private fun PhotoMenu(
     onGallery: () -> Unit,
     onCamera: () -> Unit,
 ) {
+    val p = LocalFootnotesPalette.current
     // A transition state, not a plain boolean, so the menu can animate *out* as well as in: the
     // popup stays composed until both the current and target states are false.
     val visible = remember { MutableTransitionState(false) }
@@ -658,8 +751,10 @@ private fun PhotoMenu(
                 ),
             ) {
                 Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = RoundedCornerShape(14.dp),
+                    color = p.paperRaised,
+                    contentColor = p.ink,
+                    border = BorderStroke(1.5.dp, p.ink),
                     shadowElevation = 8.dp,
                     modifier = Modifier.width(240.dp),
                 ) {

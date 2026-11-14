@@ -239,7 +239,7 @@ class TourForegroundService : Service() {
                     else -> "Walking tour"
                 },
             )
-            .putString(MediaMetadata.METADATA_KEY_ALBUM, "Walking Tours")
+            .putString(MediaMetadata.METADATA_KEY_ALBUM, "Footnotes")
             .apply {
                 if (duration > 0L) putLong(MediaMetadata.METADATA_KEY_DURATION, duration)
                 artworkFor(stop?.photoAsset)?.let {
@@ -436,7 +436,7 @@ class TourForegroundService : Service() {
         if (manager.getNotificationChannel(CHANNEL_ID) != null) return
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "Active walking tour",
+            "Footnotes is walking with you",
             // Low importance: this is a persistent status and control surface, not an alert.
             NotificationManager.IMPORTANCE_LOW,
         ).apply {

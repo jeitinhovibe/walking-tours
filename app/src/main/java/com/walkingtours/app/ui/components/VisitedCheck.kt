@@ -54,13 +54,10 @@ fun VisitedCheck(
         label = "visitedProgress",
     )
 
-    val ringColor = if (checked) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.outline
-    }
-    val fillColor = MaterialTheme.colorScheme.primary
-    val tickColor = MaterialTheme.colorScheme.onPrimary
+    val palette = com.walkingtours.app.ui.theme.LocalFootnotesPalette.current
+    val ringColor = if (checked) palette.teal else palette.ink.copy(alpha = 0.55f)
+    val fillColor = palette.teal
+    val tickColor = palette.paperRaised
 
     Box(
         modifier = modifier
@@ -93,7 +90,7 @@ fun VisitedCheck(
             Text(
                 text = number.toString(),
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = palette.inkSoft,
                 modifier = Modifier.graphicsLayer {
                     alpha = (1f - progress.coerceIn(0f, 1f))
                 },

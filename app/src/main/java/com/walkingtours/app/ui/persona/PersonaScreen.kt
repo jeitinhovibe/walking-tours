@@ -7,37 +7,35 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,27 +45,34 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.walkingtours.app.ServiceLocator
 import com.walkingtours.app.ai.Guide
 import com.walkingtours.app.ai.NARRATION_LANGUAGES
-
-/** Which of the two questions is on screen. */
-private enum class Step { EXPLORER, GUIDE }
+import com.walkingtours.app.ui.components.BackSticker
+import com.walkingtours.app.ui.components.InkCard
+import com.walkingtours.app.ui.components.Kicker
+import com.walkingtours.app.ui.components.PaperBackground
+import com.walkingtours.app.ui.components.Sparkle
+import com.walkingtours.app.ui.components.Sticker
+import com.walkingtours.app.ui.theme.CityAccent
+import com.walkingtours.app.ui.theme.FootnotesMonoFont
+import com.walkingtours.app.ui.theme.FootnotesTitleFont
+import com.walkingtours.app.ui.theme.LocalFootnotesPalette
+import com.walkingtours.app.ui.theme.footnotesAccents
 
 /**
- * The guide picker, shown before a walk begins.
+ * The guide picker, staged as a casting session rather than a settings form.
  *
- * One question — who tells this walk — answered by four guides generated for this tour, each
- * dwelling on a different aspect of the place. The choice is remembered per tour and can be changed
- * later from the tour page.
+ * Four writers, four obsessions, one city. Picking a guide is the most consequential choice in the
+ * app — it changes what every stop talks about — so it gets a full page and a bit of theatre.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PersonaScreen(
     tourId: String,
@@ -78,6 +83,10 @@ fun PersonaScreen(
     val guideController = ServiceLocator.guide
     val aiSettings = ServiceLocator.aiSettings
     val aiState by aiSettings.state.collectAsStateWithLifecycle()
+    val persona by personaSettings.state.collectAsStateWithLifecycle()
+    val currentGuide = persona.guide(tourId)
+    val p = LocalFootnotesPalette.current
+    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     var guides by remember { mutableStateOf<List<Guide>?>(null) }
 
@@ -86,121 +95,165 @@ fun PersonaScreen(
         guides = guideController.suggestGuides(tourId)
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Your guide", fontWeight = FontWeight.SemiBold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-            )
-        },
-    ) { innerPadding ->
+    PaperBackground {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .statusBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .padding(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 28.dp + navBottom),
         ) {
-            GuideStep(
-                guides = guides,
-                language = aiState.narrationLanguage,
-                onLanguage = { tag -> aiSettings.update { it.copy(narrationLanguage = tag) } },
-                onPick = { guide ->
-                    personaSettings.setGuide(tourId, guide)
-                    // The voice follows the guide's gender, so a guide never sounds like the
-                    // wrong person. Applied here, where the choice is made, and re-checked
-                    // before every play in case the voice was changed afterwards.
-                    guideController.ensureVoiceMatchesGuide(tourId)
-                    onDone()
-                },
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BackSticker(onBack = onBack)
+                Spacer(Modifier.width(12.dp))
+                Kicker("The casting", color = p.tomato)
+                Spacer(Modifier.weight(1f))
+                Sticker(
+                    text = "4 voices",
+                    container = p.mustard,
+                    rotation = 3f,
+                )
+            }
+            Spacer(Modifier.height(22.dp))
+            Text(
+                text = "Who's in\nyour ear?",
+                style = MaterialTheme.typography.displayMedium.copy(
+                    fontFamily = FootnotesTitleFont,
+                    fontSize = 48.sp,
+                    lineHeight = 45.sp,
+                ),
+                color = p.ink,
             )
-        }
-    }
-}
-
-@Composable
-private fun GuideStep(
-    guides: List<Guide>?,
-    language: String,
-    onLanguage: (String) -> Unit,
-    onPick: (Guide) -> Unit,
-) {
-    Text(
-        text = "Choose your guide",
-        style = MaterialTheme.typography.headlineSmall,
-        fontWeight = FontWeight.SemiBold,
-    )
-    Spacer(Modifier.height(6.dp))
-    Text(
-        text = "Four voices for this walk, each dwelling on a different side of it — the choice is " +
-            "what you want more of. This is who you'll hear at every stop.",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Spacer(Modifier.height(16.dp))
-    // One compact control row: the language on the right, since the guide cards fill the rest.
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Spacer(Modifier.weight(1f))
-        LanguageDropdown(selected = language, onSelect = onLanguage)
-    }
-    Spacer(Modifier.height(16.dp))
-
-    if (guides == null) {
-        // Card skeletons in the loaded layout — same size, same two columns — so the page does not
-        // jump when the guides arrive, and the walker sees the shape of what is coming.
-        repeat(2) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                GuideCardSkeleton(Modifier.weight(1f))
-                GuideCardSkeleton(Modifier.weight(1f))
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "Four storytellers for this walk. Each one is obsessed with a different side " +
+                    "of the place — pick the obsession that matches yours. They'll be with you at " +
+                    "every stop.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = p.inkSoft,
+            )
+            Spacer(Modifier.height(18.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "SPOKEN IN",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = p.inkSoft,
+                    modifier = Modifier.weight(1f),
+                )
+                LanguageDropdown(
+                    selected = aiState.narrationLanguage,
+                    onSelect = { tag -> aiSettings.update { it.copy(narrationLanguage = tag) } },
+                )
             }
-            Spacer(Modifier.height(12.dp))
-        }
-        return
-    }
+            Spacer(Modifier.height(18.dp))
 
-    // Two columns: four cards fit in two short rows, and the page stays compact.
-    guides.chunked(2).forEach { pair ->
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            pair.forEach { guide ->
-                GuideCard(guide = guide, modifier = Modifier.weight(1f), onPick = onPick)
+            if (guides == null) {
+                val accents = footnotesAccents()
+                repeat(2) { row ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        repeat(2) { column ->
+                            GuideCardSkeleton(
+                                modifier = Modifier.weight(1f),
+                                accent = accents[(row * 2 + column) % accents.size],
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+            } else {
+                val accents = footnotesAccents()
+                // The guide already walking this tour must be on the casting sheet. Suggestions are
+                // regenerated per process and can differ from the set the walker originally chose,
+                // which used to make their own guide invisible — and therefore impossible to keep.
+                val offered = guides!!.let { generated ->
+                    if (currentGuide == null || generated.any { it.id == currentGuide.id }) {
+                        generated
+                    } else {
+                        (listOf(currentGuide) + generated).take(4)
+                    }
+                }
+                offered.chunked(2).forEachIndexed { rowIndex, pair ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        pair.forEachIndexed { columnIndex, guide ->
+                            val index = rowIndex * 2 + columnIndex
+                            GuideCard(
+                                guide = guide,
+                                index = index,
+                                accent = accents[index % accents.size],
+                                current = guide.id == currentGuide?.id,
+                                modifier = Modifier.weight(1f),
+                                onPick = {
+                                    personaSettings.setGuide(tourId, guide)
+                                    guideController.ensureVoiceMatchesGuide(tourId)
+                                    onDone()
+                                },
+                            )
+                        }
+                        if (pair.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
             }
-            if (pair.size == 1) Spacer(Modifier.weight(1f))
+
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Sparkle(Modifier.size(20.dp), color = p.teal)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "You can change your mind later. The guide will pretend not to notice.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = p.inkSoft,
+                )
+            }
         }
-        Spacer(Modifier.height(12.dp))
     }
 }
 
 @Composable
 private fun LanguageDropdown(selected: String, onSelect: (String) -> Unit) {
+    val p = LocalFootnotesPalette.current
     var expanded by remember { mutableStateOf(false) }
     val label = NARRATION_LANGUAGES.firstOrNull { it.first == selected }?.second ?: selected
     Box {
-        OutlinedButton(
+        Surface(
             onClick = { expanded = true },
-            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+            shape = RoundedCornerShape(50),
+            color = p.paperRaised,
+            contentColor = p.ink,
+            border = BorderStroke(1.5.dp, p.ink),
         ) {
-            Text(label, style = MaterialTheme.typography.labelLarge)
-            Spacer(Modifier.width(4.dp))
-            Icon(
-                Icons.Filled.ArrowDropDown,
-                contentDescription = "Narration language",
-                modifier = Modifier.size(18.dp),
-            )
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = label.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    Icons.Filled.ArrowDropDown,
+                    contentDescription = "Narration language",
+                    modifier = Modifier.size(16.dp),
+                )
+            }
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             NARRATION_LANGUAGES.forEach { (tag, text) ->
                 DropdownMenuItem(
-                    text = { Text(text) },
+                    text = {
+                        Text(
+                            text = if (tag == selected) "$text  ✓" else text,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    },
                     onClick = {
                         expanded = false
                         onSelect(tag)
@@ -212,117 +265,159 @@ private fun LanguageDropdown(selected: String, onSelect: (String) -> Unit) {
 }
 
 @Composable
-private fun GuideCard(guide: Guide, modifier: Modifier, onPick: (Guide) -> Unit) {
-    Card(
-        modifier = modifier.height(196.dp).clickable { onPick(guide) },
-        // A quiet surface with a hairline edge, rather than a block of primary blue: the colour was
-        // competing with the avatar and made the grid look washed out.
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+private fun GuideCard(
+    guide: Guide,
+    index: Int,
+    accent: CityAccent,
+    current: Boolean,
+    modifier: Modifier,
+    onPick: (Guide) -> Unit,
+) {
+    val p = LocalFootnotesPalette.current
+    InkCard(
+        modifier = modifier
+            .height(258.dp)
+            .graphicsLayer { rotationZ = if (index % 2 == 0) -1.1f else 1.1f },
+        onClick = { onPick(guide) },
+        container = accent.background,
+        contentColor = accent.foreground,
+        shape = RoundedCornerShape(18.dp),
+        shadow = 5.dp,
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(50)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = guide.name.firstOrNull()?.uppercase() ?: "?",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                )
-            }
-            Spacer(Modifier.height(10.dp))
+        Box(Modifier.fillMaxSize().padding(13.dp)) {
             Text(
-                text = guide.name,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
+                text = guide.name.firstOrNull()?.uppercase() ?: "?",
+                style = MaterialTheme.typography.displayLarge.copy(
+                    fontFamily = FootnotesTitleFont,
+                    fontSize = 86.sp,
+                    lineHeight = 80.sp,
+                ),
+                color = accent.foreground.copy(alpha = 0.16f),
+                modifier = Modifier.align(Alignment.TopEnd),
             )
-            if (guide.angle.isNotBlank()) {
-                Spacer(Modifier.height(6.dp))
-                // The aspect is the real difference between the four cards, so it is the line the eye
-                // lands on: the label colour, above the tagline rather than below it.
+            Column(Modifier.fillMaxSize()) {
                 Text(
-                    text = guide.angle,
+                    text = "VOICE ${"%02d".format(index + 1)}",
                     style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Bold,
+                    color = accent.foreground.copy(alpha = 0.78f),
                 )
-            }
-            if (guide.tagline.isNotBlank()) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.weight(1f))
                 Text(
-                    text = guide.tagline,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
+                    text = guide.name,
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontFamily = FootnotesTitleFont,
+                        fontSize = 20.sp,
+                        lineHeight = 21.sp,
+                    ),
+                    color = accent.foreground,
+                    maxLines = 4,
                     overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
                 )
+                if (guide.angle.isNotBlank()) {
+                    Spacer(Modifier.height(5.dp))
+                    Box(
+                        Modifier
+                            .background(accent.foreground, RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 3.dp),
+                    ) {
+                        Text(
+                            text = guide.angle.uppercase(),
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp, lineHeight = 11.sp),
+                            fontWeight = FontWeight.Bold,
+                            color = accent.background,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                if (guide.tagline.isNotBlank()) {
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        text = guide.tagline,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 16.sp),
+                        color = accent.foreground.copy(alpha = 0.85f),
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = if (current) "CURRENT GUIDE" else "PICK ME",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = accent.foreground,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .background(accent.foreground, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = if (current) {
+                                Icons.Filled.Check
+                            } else {
+                                Icons.AutoMirrored.Filled.ArrowForward
+                            },
+                            contentDescription = null,
+                            tint = accent.background,
+                            modifier = Modifier.size(13.dp),
+                        )
+                    }
+                }
             }
         }
     }
 }
 
-/**
- * A placeholder shaped like a [GuideCard], pulsing gently while the guides are generated. Same size
- * and layout as the real thing, so nothing moves when they arrive.
- */
 @Composable
-private fun GuideCardSkeleton(modifier: Modifier = Modifier) {
+private fun GuideCardSkeleton(modifier: Modifier = Modifier, accent: CityAccent) {
     val transition = rememberInfiniteTransition(label = "guide-skeleton")
     val alpha by transition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 0.85f,
+        initialValue = 0.45f,
+        targetValue = 0.9f,
         animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
         label = "guide-skeleton-alpha",
     )
-    Card(
-        modifier = modifier.height(196.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    val p = LocalFootnotesPalette.current
+    Box(
+        modifier = modifier
+            .height(258.dp)
+            .background(accent.background, RoundedCornerShape(18.dp))
+            .padding(13.dp)
+            .alpha(alpha),
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
+        Column(Modifier.fillMaxSize()) {
             Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .alpha(alpha)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(50)),
+                Modifier
+                    .width(54.dp)
+                    .height(10.dp)
+                    .background(accent.foreground.copy(alpha = 0.4f), RoundedCornerShape(5.dp)),
+            )
+            Spacer(Modifier.weight(1f))
+            Box(
+                Modifier
+                    .fillMaxWidth(0.8f)
+                    .height(20.dp)
+                    .background(accent.foreground.copy(alpha = 0.35f), RoundedCornerShape(5.dp)),
+            )
+            Spacer(Modifier.height(6.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth(0.55f)
+                    .height(16.dp)
+                    .background(accent.foreground.copy(alpha = 0.28f), RoundedCornerShape(5.dp)),
             )
             Spacer(Modifier.height(10.dp))
-            SkeletonBar(widthFraction = 0.72f, height = 12.dp, alpha = alpha)
-            Spacer(Modifier.height(6.dp))
-            SkeletonBar(widthFraction = 0.5f, height = 12.dp, alpha = alpha)
-            Spacer(Modifier.height(12.dp))
-            SkeletonBar(widthFraction = 0.92f, height = 10.dp, alpha = alpha)
-            Spacer(Modifier.height(6.dp))
-            SkeletonBar(widthFraction = 0.82f, height = 10.dp, alpha = alpha)
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(28.dp)
+                    .background(accent.foreground.copy(alpha = 0.22f), RoundedCornerShape(5.dp)),
+            )
         }
     }
-}
-
-@Composable
-private fun SkeletonBar(widthFraction: Float, height: Dp, alpha: Float) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth(widthFraction)
-            .height(height)
-            .alpha(alpha)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(6.dp)),
-    )
 }

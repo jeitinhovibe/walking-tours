@@ -1,5 +1,6 @@
 package com.walkingtours.app.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,6 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.walkingtours.app.ui.theme.FootnotesMonoFont
+import com.walkingtours.app.ui.theme.LocalFootnotesPalette
 import com.walkingtours.app.data.db.StopEntity
 import kotlinx.coroutines.launch
 
@@ -146,30 +150,24 @@ fun StopHero(
         }
 
         Row(
-            modifier = Modifier.align(Alignment.TopEnd).padding(10.dp),
+            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 8.dp, end = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
+            val palette = LocalFootnotesPalette.current
             listOf("Photo" to 0, "Map" to 1).forEach { (label, page) ->
                 val selected = pagerState.currentPage == page
                 Surface(
                     shape = RoundedCornerShape(50),
-                    color = if (selected) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)
-                    },
-                    contentColor = if (selected) {
-                        MaterialTheme.colorScheme.onPrimary
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
+                    color = if (selected) palette.ink else palette.paperRaised,
+                    contentColor = if (selected) palette.paperRaised else palette.ink,
+                    border = BorderStroke(1.2.dp, palette.ink),
                     onClick = { scope.launch { pagerState.animateScrollToPage(page) } },
                 ) {
                     Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        text = label.uppercase(),
+                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = FootnotesMonoFont),
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
                     )
                 }
             }
