@@ -139,11 +139,10 @@ fun TopEdgeFade(
 @Composable
 fun SystemBarBackdrop(
     /**
-     * The bottom bar is deliberately a little translucent: on phones with 3-button navigation it
-     * keeps the gesture area feeling like a layer over the page rather than a second slab of paper
-     * stuck to the bottom. The top bar stays opaque to keep the clock and status icons crisp.
+     * The bottom bar is a light paper veil, not a solid slab: 30% opaque reads as 70% transparent
+     * over the page, so content stays visible behind the system buttons.
      */
-    bottomAlpha: Float = 0.72f,
+    bottomAlpha: Float = 0.30f,
 ) {
     val p = LocalFootnotesPalette.current
     val statusHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
