@@ -61,7 +61,8 @@ class MainActivity : ComponentActivity() {
                 @Suppress("DEPRECATION")
                 SideEffect {
                     window.statusBarColor = background.toArgb()
-                    window.navigationBarColor = background.toArgb()
+                    // The bottom bar carries a little transparency; the top one does not.
+                    window.navigationBarColor = background.copy(alpha = 0.72f).toArgb()
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         window.isStatusBarContrastEnforced = false
                         window.isNavigationBarContrastEnforced = false

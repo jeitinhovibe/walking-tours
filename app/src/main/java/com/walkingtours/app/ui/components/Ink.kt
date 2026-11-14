@@ -137,7 +137,14 @@ fun TopEdgeFade(
  * honours window colours, so the bars are also filled here, in Compose, above the content.
  */
 @Composable
-fun SystemBarBackdrop() {
+fun SystemBarBackdrop(
+    /**
+     * The bottom bar is deliberately a little translucent: on phones with 3-button navigation it
+     * keeps the gesture area feeling like a layer over the page rather than a second slab of paper
+     * stuck to the bottom. The top bar stays opaque to keep the clock and status icons crisp.
+     */
+    bottomAlpha: Float = 0.72f,
+) {
     val p = LocalFootnotesPalette.current
     val statusHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -157,7 +164,7 @@ fun SystemBarBackdrop() {
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .height(navHeight)
-                    .background(p.paper),
+                    .background(p.paper.copy(alpha = bottomAlpha)),
             )
         }
     }
